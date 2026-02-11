@@ -8,30 +8,34 @@ RUN_STDERR=""
 
 trim_multiline() {
   local text="$1"
-  local max_lines="${2:-14}"
-  /bin/echo "$text" | /usr/bin/awk -v max="${max_lines}" 'NF {print; c++; if (c>=max) exit}'
+  local max_lines="${2:-12}"
+  /usr/bin/printf '%s\n' "$text" | /usr/bin/awk -v max="${max_lines}" 'NF {print; c++; if (c>=max) exit}'
 }
 
-brief_value() {
+kv_value() {
   local text="$1"
   local key="$2"
-  /bin/echo "$text" | /usr/bin/awk -F'=' -v k="$key" '$1==k {sub(/^[^=]*=/, "", $0); print; exit}'
+  /usr/bin/printf '%s\n' "$text" | /usr/bin/awk -F'=' -v k="$key" '$1==k {print substr($0, index($0, "=")+1); exit}'
+}
+
+normalize_newlines() {
+  /usr/bin/perl -0777 -pe 's/\r\n?/\n/g'
 }
 
 run_command() {
   local cmd="$1"
   local admin="$2"
   local raw=""
-  local raw_clean=""
+  local clean=""
 
   raw="$(/usr/bin/osascript - "$cmd" "$admin" <<'OSA'
 on run argv
   set cmd to item 1 of argv
   set needAdmin to item 2 of argv
 
-  set wrapped to "TMP_OUT=$(mktemp); (" & cmd & ") >\"$TMP_OUT\" 2>&1; CODE=$?; " & ¬
-    "echo __OUT_BEGIN__; cat \"$TMP_OUT\"; echo __OUT_END__; " & ¬
-    "echo __EXIT_CODE__=$CODE; rm -f \"$TMP_OUT\"; exit 0"
+  set wrapped to "OUT=$(mktemp); (" & cmd & ") >\"$OUT\" 2>&1; CODE=$?; " & ¬
+    "echo __OUT_BEGIN__; cat \"$OUT\"; echo __OUT_END__; " & ¬
+    "echo __EXIT_CODE__=$CODE; rm -f \"$OUT\"; exit 0"
 
   try
     if needAdmin is "yes" then
@@ -46,44 +50,35 @@ end run
 OSA
 )"
 
-  # osascript may return CR-separated lines; convert CR to LF, then parse robustly.
-  raw_clean="$(/usr/bin/perl -0777 -pe 's/\r/\n/g' <<<"$raw")"
+  clean="$(/usr/bin/printf '%s' "$raw" | normalize_newlines)"
 
-  RUN_EXIT="$(/usr/bin/perl -0777 -ne 'if(/EXIT_CODE[^=]*=(\d+)/s){print $1; exit}' <<<"$raw_clean")"
-  RUN_STDOUT="$(/usr/bin/perl -0777 -ne 'if(/OUT_BEGIN[^\n]*\n(.*?)\n[^\n]*OUT_END/s){print $1; exit}' <<<"$raw_clean")"
-  RUN_STDERR="$(/usr/bin/perl -0777 -ne 'if(/AS_ERROR=(.*)$/s){print $1; exit}' <<<"$raw_clean")"
-
-  # Fallback for edge formatting where EXIT_CODE appears but with unusual separators.
-  if [[ -z "${RUN_EXIT}" ]]; then
-    RUN_EXIT="$(/usr/bin/grep -Eo 'EXIT_CODE[^=]*=[0-9]+' <<<"$raw_clean" | /usr/bin/tail -n 1 | /usr/bin/awk -F'=' '{print $2}')"
-  fi
+  RUN_EXIT="$(/usr/bin/perl -0777 -ne 'if(/__EXIT_CODE__=(\d+)/s){print $1; exit}' <<<"$clean")"
+  RUN_STDOUT="$(/usr/bin/perl -0777 -ne 'if(/__OUT_BEGIN__\n(.*?)\n__OUT_END__/s){print $1; exit}' <<<"$clean")"
+  RUN_STDERR="$(/usr/bin/perl -0777 -ne 'if(/__AS_ERROR__=(.*)$/s){print $1; exit}' <<<"$clean")"
 
   if [[ -z "${RUN_EXIT}" ]]; then
     RUN_EXIT=1
-    RUN_STDERR="Не удалось распознать результат выполнения. Raw output:
-${raw}"
+    RUN_STDERR="Не удалось распознать результат выполнения."
   fi
 
   if [[ "${RUN_EXIT}" != "0" && -z "${RUN_STDOUT}" && -z "${RUN_STDERR}" ]]; then
-    RUN_STDERR="Команда завершилась с ошибкой без вывода. CMD: ${cmd}"
+    RUN_STDERR="Команда завершилась с ошибкой без вывода."
   fi
 }
 
 show_details() {
-  local header="$1"
-  local details="$2"
-  if [[ -z "${details}" ]]; then
-    details="(подробности отсутствуют)"
-  fi
+  local title="$1"
+  local body="$2"
+  [[ -n "$body" ]] || body="(подробности отсутствуют)"
 
-  /usr/bin/osascript - "$header" "$details" <<'OSA'
+  /usr/bin/osascript - "$title" "$body" <<'OSA'
 on run argv
-  set header to item 1 of argv
-  set body to item 2 of argv
-  if (length of body) > 12000 then
-    set body to text 1 thru 12000 of body & "\n... (обрезано)"
+  set titleText to item 1 of argv
+  set bodyText to item 2 of argv
+  if (length of bodyText) > 12000 then
+    set bodyText to text 1 thru 12000 of bodyText & "\n... (обрезано)"
   end if
-  display dialog body with title header with icon note buttons {"OK"} default button "OK" giving up after 120
+  display dialog bodyText with title titleText with icon note buttons {"OK"} default button "OK" giving up after 120
 end run
 OSA
 }
@@ -92,76 +87,75 @@ show_card() {
   local status="$1"
   local summary="$2"
   local details="$3"
-  local action_title="$4"
+  local action="$4"
   local clicked=""
 
   clicked="$(/usr/bin/osascript - "$status" "$summary" <<'OSA'
 on run argv
-  set status to item 1 of argv
-  set summary to item 2 of argv
-  if (length of summary) > 2500 then
-    set summary to text 1 thru 2500 of summary & "\n... (обрезано)"
+  set statusText to item 1 of argv
+  set summaryText to item 2 of argv
+  if (length of summaryText) > 2800 then
+    set summaryText to text 1 thru 2800 of summaryText & "\n... (обрезано)"
   end if
-  set d to display dialog summary with title ("AvenCores Hosts Updater — " & status) with icon note buttons {"OK", "Подробнее"} default button "OK" giving up after 90
+  set d to display dialog summaryText with title ("AvenCores Hosts Updater — " & statusText) with icon note buttons {"OK", "Подробнее"} default button "OK" giving up after 90
   return button returned of d
 end run
 OSA
 )"
 
   if [[ "${clicked}" == "Подробнее" ]]; then
-    show_details "${action_title}: подробный вывод" "${details}"
+    show_details "${action}: подробный вывод" "$details"
   fi
 }
 
 confirm_danger() {
-  local action_name="$1"
-  local phase1=""
-  local phase2=""
+  local action="$1"
+  local p1 p2
 
-  phase1="$(/usr/bin/osascript - "$action_name" <<'OSA'
+  p1="$(/usr/bin/osascript - "$action" <<'OSA'
 on run argv
-  set actionName to item 1 of argv
-  set d to display dialog ("Вы уверены, что хотите выполнить: " & actionName & "?") with title "Подтверждение" with icon caution buttons {"Отмена", "Продолжить"} default button "Отмена"
+  set actionText to item 1 of argv
+  set d to display dialog ("Вы уверены, что хотите выполнить: " & actionText & "?") with title "Подтверждение" with icon caution buttons {"Отмена", "Продолжить"} default button "Отмена"
   return button returned of d
 end run
 OSA
 )"
-  [[ "${phase1}" == "Продолжить" ]] || return 1
+  [[ "$p1" == "Продолжить" ]] || return 1
 
-  phase2="$(/usr/bin/osascript - "$action_name" <<'OSA'
+  p2="$(/usr/bin/osascript - "$action" <<'OSA'
 on run argv
-  set actionName to item 1 of argv
-  set d to display dialog ("Подтвердите действие: " & actionName & "\nЭто изменение можно отменить только вручную.") with title "Финальное подтверждение" with icon stop buttons {"Нет", "Да, удалить"} default button "Нет"
+  set actionText to item 1 of argv
+  set d to display dialog ("Подтвердите действие: " & actionText & "\nЭто действие можно отменить только вручную.") with title "Финальное подтверждение" with icon stop buttons {"Нет", "Да, удалить"} default button "Нет"
   return button returned of d
 end run
 OSA
 )"
 
-  [[ "${phase2}" == "Да, удалить" ]]
+  [[ "$p2" == "Да, удалить" ]]
 }
 
 build_health_summary() {
   run_command "cd '${SCRIPT_DIR}' && ./status.sh --brief" "yes"
 
-  local b="${RUN_STDOUT}"
-  local installed task interval runat runs lastexit etag state
-  installed="$(brief_value "$b" "installed_script")"
-  task="$(brief_value "$b" "task_configured")"
-  interval="$(brief_value "$b" "interval_sec")"
-  runat="$(brief_value "$b" "run_at_load")"
-  runs="$(brief_value "$b" "runs")"
-  lastexit="$(brief_value "$b" "last_exit")"
-  etag="$(brief_value "$b" "etag")"
-  state="$(brief_value "$b" "service_state")"
+  local b="$RUN_STDOUT"
+  local installed task state interval runat runs lastexit etag
+  installed="$(kv_value "$b" "installed_script")"
+  task="$(kv_value "$b" "task_configured")"
+  state="$(kv_value "$b" "service_state")"
+  interval="$(kv_value "$b" "interval_sec")"
+  runat="$(kv_value "$b" "run_at_load")"
+  runs="$(kv_value "$b" "runs")"
+  lastexit="$(kv_value "$b" "last_exit")"
+  etag="$(kv_value "$b" "etag")"
 
   [[ -n "$installed" ]] || installed="unknown"
   [[ -n "$task" ]] || task="unknown"
+  [[ -n "$state" ]] || state="unknown"
   [[ -n "$interval" ]] || interval="unknown"
   [[ -n "$runat" ]] || runat="unknown"
   [[ -n "$runs" ]] || runs="unknown"
   [[ -n "$lastexit" ]] || lastexit="unknown"
   [[ -n "$etag" ]] || etag="-"
-  [[ -n "$state" ]] || state="unknown"
 
   /bin/cat <<TXT
 Главный сценарий: Установить / Исправить
@@ -185,54 +179,67 @@ on run argv
   set promptText to item 1 of argv
   set itemsList to {"Установить / Исправить", "Статус", "Обновить сейчас", "Логи", "Удалить задачу", "Полное удаление", "Открыть папку проекта", "Выход"}
   set selected to choose from list itemsList with title "AvenCores Hosts Updater" with prompt promptText default items {"Установить / Исправить"}
-  if selected is false then
-    return "Выход"
-  end if
+  if selected is false then return "Выход"
   return item 1 of selected
 end run
 OSA
 }
 
-open_project_folder() {
-  /usr/bin/open "${SCRIPT_DIR}"
-  local summary
-  summary=$(/bin/cat <<TXT
-Папка проекта открыта.
-${SCRIPT_DIR}
+build_details() {
+  /bin/cat <<TXT
+stdout:
+${RUN_STDOUT}
+
+stderr:
+${RUN_STDERR}
 TXT
-)
-  show_card "Успешно" "${summary}" "Папка проекта открыта: ${SCRIPT_DIR}" "Открыть папку проекта"
 }
 
-render_status_card() {
-  run_command "cd '${SCRIPT_DIR}' && ./status.sh --brief" "yes"
-  local brief="${RUN_STDOUT}"
-  local brief_err="${RUN_STDERR}"
+action_install() {
+  run_command "cd '${SCRIPT_DIR}' && ./install.sh" "yes"
+  local status="Успешно"
+  local summary="Установка/исправление завершено."
+  [[ "$RUN_EXIT" == "0" ]] || { status="Ошибка"; summary="Не удалось выполнить установку/исправление."; }
 
-  local installed task interval runat runs lastexit etag state
-  installed="$(brief_value "$brief" "installed_script")"
-  task="$(brief_value "$brief" "task_configured")"
-  interval="$(brief_value "$brief" "interval_sec")"
-  runat="$(brief_value "$brief" "run_at_load")"
-  runs="$(brief_value "$brief" "runs")"
-  lastexit="$(brief_value "$brief" "last_exit")"
-  etag="$(brief_value "$brief" "etag")"
-  state="$(brief_value "$brief" "service_state")"
+  summary=$(/bin/cat <<TXT
+${summary}
+
+$(trim_multiline "$RUN_STDOUT" 8)
+TXT
+)
+  show_card "$status" "$summary" "$(build_details)" "Установить / Исправить"
+}
+
+action_status() {
+  run_command "cd '${SCRIPT_DIR}' && ./status.sh --brief" "yes"
+  local brief="$RUN_STDOUT"
+  local installed task state interval runat runs lastexit etag
+  installed="$(kv_value "$brief" "installed_script")"
+  task="$(kv_value "$brief" "task_configured")"
+  state="$(kv_value "$brief" "service_state")"
+  interval="$(kv_value "$brief" "interval_sec")"
+  runat="$(kv_value "$brief" "run_at_load")"
+  runs="$(kv_value "$brief" "runs")"
+  lastexit="$(kv_value "$brief" "last_exit")"
+  etag="$(kv_value "$brief" "etag")"
 
   [[ -n "$installed" ]] || installed="unknown"
   [[ -n "$task" ]] || task="unknown"
+  [[ -n "$state" ]] || state="unknown"
   [[ -n "$interval" ]] || interval="unknown"
   [[ -n "$runat" ]] || runat="unknown"
   [[ -n "$runs" ]] || runs="unknown"
   [[ -n "$lastexit" ]] || lastexit="unknown"
   [[ -n "$etag" ]] || etag="-"
-  [[ -n "$state" ]] || state="unknown"
 
   run_command "cd '${SCRIPT_DIR}' && ./status.sh" "yes"
-  local full_status="${RUN_STDOUT}"
-  local full_err="${RUN_STDERR}"
+  local full="$RUN_STDOUT"
+  local full_err="$RUN_STDERR"
 
-  local summary details status_label
+  local status="Успешно"
+  [[ "$installed" == "yes" && "$task" == "yes" ]] || status="Предупреждение"
+
+  local summary details
   summary=$(/bin/cat <<TXT
 Статус сервиса:
 • Скрипт установлен: ${installed}
@@ -246,128 +253,58 @@ render_status_card() {
 TXT
 )
   details=$(/bin/cat <<TXT
--- brief stdout --
+-- brief --
 ${brief}
 
--- brief stderr --
-${brief_err}
+-- full stdout --
+${full}
 
--- full status stdout --
-${full_status}
-
--- full status stderr --
+-- full stderr --
 ${full_err}
 TXT
 )
 
-  status_label="Успешно"
-  if [[ "${task}" != "yes" || "${installed}" != "yes" ]]; then
-    status_label="Предупреждение"
-  fi
-
-  show_card "${status_label}" "${summary}" "${details}" "Статус"
-}
-
-action_install() {
-  run_command "cd '${SCRIPT_DIR}' && ./install.sh" "yes"
-
-  local status_label summary extra details
-  status_label="Успешно"
-  summary="Установка/исправление завершено."
-  extra="$(trim_multiline "${RUN_STDOUT}" 8)"
-
-  if [[ "${RUN_EXIT}" != "0" ]]; then
-    status_label="Ошибка"
-    summary="Не удалось выполнить установку/исправление."
-  fi
-
-  summary=$(/bin/cat <<TXT
-${summary}
-
-${extra}
-TXT
-)
-  details=$(/bin/cat <<TXT
-stdout:
-${RUN_STDOUT}
-
-stderr:
-${RUN_STDERR}
-TXT
-)
-
-  show_card "${status_label}" "${summary}" "${details}" "Установить / Исправить"
+  show_card "$status" "$summary" "$details" "Статус"
 }
 
 action_update_now() {
   run_command "cd '${SCRIPT_DIR}' && ./update-hosts.sh" "yes"
+  local status="Успешно"
+  local summary="Обновление выполнено."
 
-  local status_label summary compact details
-  status_label="Успешно"
-  summary="Обновление выполнено."
-
-  if /bin/echo "${RUN_STDOUT}" | /usr/bin/grep -qi "не требуется"; then
+  if /usr/bin/printf '%s\n' "$RUN_STDOUT" | /usr/bin/grep -qi "не требуется"; then
     summary="Обновление не требуется: файл уже актуален."
-  elif /bin/echo "${RUN_STDOUT}" | /usr/bin/grep -qi "успешно обновлен"; then
+  elif /usr/bin/printf '%s\n' "$RUN_STDOUT" | /usr/bin/grep -qi "успешно обновлен"; then
     summary="Файл hosts обновлен успешно."
-  elif /bin/echo "${RUN_STDOUT}" | /usr/bin/grep -qi "уже выполняется"; then
-    status_label="Предупреждение"
+  elif /usr/bin/printf '%s\n' "$RUN_STDOUT" | /usr/bin/grep -qi "уже выполняется"; then
+    status="Предупреждение"
     summary="Обновление пропущено: процесс уже выполняется."
   fi
 
-  if [[ "${RUN_EXIT}" != "0" ]]; then
-    status_label="Ошибка"
-    summary="Обновление завершилось с ошибкой."
-  fi
+  [[ "$RUN_EXIT" == "0" ]] || { status="Ошибка"; summary="Обновление завершилось с ошибкой."; }
 
-  compact="$(trim_multiline "${RUN_STDOUT}" 8)"
   summary=$(/bin/cat <<TXT
 ${summary}
 
-${compact}
+$(trim_multiline "$RUN_STDOUT" 8)
 TXT
 )
-  details=$(/bin/cat <<TXT
-stdout:
-${RUN_STDOUT}
-
-stderr:
-${RUN_STDERR}
-TXT
-)
-
-  show_card "${status_label}" "${summary}" "${details}" "Обновить сейчас"
+  show_card "$status" "$summary" "$(build_details)" "Обновить сейчас"
 }
 
 action_logs() {
   run_command "tail -n 40 /var/log/avencores-hosts-updater.log; echo '-----'; tail -n 40 /var/log/avencores-hosts-updater.err" "yes"
+  local status="Успешно"
+  local summary="Показаны последние логи."
+  [[ "$RUN_EXIT" == "0" ]] || { status="Ошибка"; summary="Не удалось прочитать логи."; }
 
-  local status_label summary compact details
-  status_label="Успешно"
-  summary="Показаны последние логи."
-
-  if [[ "${RUN_EXIT}" != "0" ]]; then
-    status_label="Ошибка"
-    summary="Не удалось прочитать логи."
-  fi
-
-  compact="$(trim_multiline "${RUN_STDOUT}" 10)"
   summary=$(/bin/cat <<TXT
 ${summary}
 
-${compact}
+$(trim_multiline "$RUN_STDOUT" 10)
 TXT
 )
-  details=$(/bin/cat <<TXT
-stdout:
-${RUN_STDOUT}
-
-stderr:
-${RUN_STDERR}
-TXT
-)
-
-  show_card "${status_label}" "${summary}" "${details}" "Логи"
+  show_card "$status" "$summary" "$(build_details)" "Логи"
 }
 
 action_remove_task() {
@@ -377,33 +314,17 @@ action_remove_task() {
   fi
 
   run_command "cd '${SCRIPT_DIR}' && ./remove-task.sh" "yes"
+  local status="Успешно"
+  local summary="Launchd-задача удалена. Скрипт обновления оставлен."
+  [[ "$RUN_EXIT" == "0" ]] || { status="Ошибка"; summary="Не удалось удалить launchd-задачу."; }
 
-  local status_label summary compact details
-  status_label="Успешно"
-  summary="Launchd-задача удалена. Скрипт обновления оставлен."
-
-  if [[ "${RUN_EXIT}" != "0" ]]; then
-    status_label="Ошибка"
-    summary="Не удалось удалить launchd-задачу."
-  fi
-
-  compact="$(trim_multiline "${RUN_STDOUT}" 8)"
   summary=$(/bin/cat <<TXT
 ${summary}
 
-${compact}
+$(trim_multiline "$RUN_STDOUT" 8)
 TXT
 )
-  details=$(/bin/cat <<TXT
-stdout:
-${RUN_STDOUT}
-
-stderr:
-${RUN_STDERR}
-TXT
-)
-
-  show_card "${status_label}" "${summary}" "${details}" "Удалить задачу"
+  show_card "$status" "$summary" "$(build_details)" "Удалить задачу"
 }
 
 action_uninstall() {
@@ -413,71 +334,47 @@ action_uninstall() {
   fi
 
   run_command "cd '${SCRIPT_DIR}' && ./uninstall.sh" "yes"
+  local status="Успешно"
+  local summary="Выполнено полное удаление (задача + скрипт)."
+  [[ "$RUN_EXIT" == "0" ]] || { status="Ошибка"; summary="Не удалось выполнить полное удаление."; }
 
-  local status_label summary compact details
-  status_label="Успешно"
-  summary="Выполнено полное удаление (задача + скрипт)."
-
-  if [[ "${RUN_EXIT}" != "0" ]]; then
-    status_label="Ошибка"
-    summary="Не удалось выполнить полное удаление."
-  fi
-
-  compact="$(trim_multiline "${RUN_STDOUT}" 8)"
   summary=$(/bin/cat <<TXT
 ${summary}
 
-${compact}
+$(trim_multiline "$RUN_STDOUT" 8)
 TXT
 )
-  details=$(/bin/cat <<TXT
-stdout:
-${RUN_STDOUT}
-
-stderr:
-${RUN_STDERR}
-TXT
-)
-
-  show_card "${status_label}" "${summary}" "${details}" "Полное удаление"
+  show_card "$status" "$summary" "$(build_details)" "Полное удаление"
 }
 
-main_loop() {
-  while true; do
-    local home_text action
-    home_text="$(build_health_summary)"
-    action="$(choose_action "${home_text}")"
+open_project_folder() {
+  /usr/bin/open "${SCRIPT_DIR}"
+  local summary
+  summary=$(/bin/cat <<TXT
+Папка проекта открыта.
+${SCRIPT_DIR}
+TXT
+)
+  show_card "Успешно" "$summary" "Папка проекта открыта: ${SCRIPT_DIR}" "Открыть папку проекта"
+}
 
-    case "${action}" in
-      "Установить / Исправить")
-        action_install
-        ;;
-      "Статус")
-        render_status_card
-        ;;
-      "Обновить сейчас")
-        action_update_now
-        ;;
-      "Логи")
-        action_logs
-        ;;
-      "Удалить задачу")
-        action_remove_task
-        ;;
-      "Полное удаление")
-        action_uninstall
-        ;;
-      "Открыть папку проекта")
-        open_project_folder
-        ;;
-      "Выход")
-        break
-        ;;
-      *)
-        show_card "Ошибка" "Неизвестное действие: ${action}" "Неизвестное действие: ${action}" "Ошибка"
-        ;;
+main() {
+  while true; do
+    local action
+    action="$(choose_action "$(build_health_summary)")"
+
+    case "$action" in
+      "Установить / Исправить") action_install ;;
+      "Статус") action_status ;;
+      "Обновить сейчас") action_update_now ;;
+      "Логи") action_logs ;;
+      "Удалить задачу") action_remove_task ;;
+      "Полное удаление") action_uninstall ;;
+      "Открыть папку проекта") open_project_folder ;;
+      "Выход") break ;;
+      *) show_card "Ошибка" "Неизвестное действие: $action" "Неизвестное действие: $action" "Ошибка" ;;
     esac
   done
 }
 
-main_loop
+main
