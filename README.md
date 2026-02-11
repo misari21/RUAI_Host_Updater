@@ -16,8 +16,8 @@
 
 ```bash
 cd "<PROJECT_DIR>"
-sudo ./install.sh
-sudo ./status.sh
+sudo ./app-src/install.sh
+sudo ./app-src/status.sh
 ```
 
 ## Основной стек технологий
