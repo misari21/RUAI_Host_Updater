@@ -50,6 +50,12 @@ done
 cleanup() {
   [[ -n "${TMP_SCRIPT}" && -f "${TMP_SCRIPT}" ]] && /bin/rm -f "${TMP_SCRIPT}"
 }
+
+sign_app() {
+  /usr/bin/codesign --force --deep --sign - --timestamp=none "${APP_PATH}"
+  /usr/bin/codesign --verify --deep --strict "${APP_PATH}"
+}
+
 create_app() {
   TMP_SCRIPT="$(/usr/bin/mktemp /tmp/hosts-updater-app.XXXXXX)"
   trap cleanup EXIT
@@ -90,6 +96,8 @@ OSA
     "${APP_RESOURCES}/uninstall.sh" \
     "${APP_RESOURCES}/update-hosts.sh"
   /bin/chmod 0644 "${APP_RESOURCES}/com.avencores.hosts-updater.plist"
+
+  sign_app
 }
 
 for file in "${PAYLOAD_FILES[@]}"; do

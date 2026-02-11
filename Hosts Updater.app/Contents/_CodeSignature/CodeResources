@@ -20,6 +20,34 @@
 		<data>
 		dKhr+IMgShqRZxwhH3dAtNiIqYE=
 		</data>
+		<key>Resources/com.avencores.hosts-updater.plist</key>
+		<data>
+		82bU0Rjn7uWDPJP4I/LAX8GgPLU=
+		</data>
+		<key>Resources/hosts-updater-gui.command</key>
+		<data>
+		uSNXVXPXwQWhwihPh/qeyBwclCw=
+		</data>
+		<key>Resources/install.sh</key>
+		<data>
+		ukQ62liRz9nC6LTGKiBLv7kiy6Y=
+		</data>
+		<key>Resources/remove-task.sh</key>
+		<data>
+		GNLyK8dVZvaQ8GCQJrhlaqfilgc=
+		</data>
+		<key>Resources/status.sh</key>
+		<data>
+		EXsFlHIFsBXndCoLEAlaU8L+Q4A=
+		</data>
+		<key>Resources/uninstall.sh</key>
+		<data>
+		uCc/C52ENo5UWdRIM6yBr2+W9YY=
+		</data>
+		<key>Resources/update-hosts.sh</key>
+		<data>
+		yBstlYakERrh4V9RXJ8ZqDrsgpI=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -65,6 +93,83 @@
 			<key>hash2</key>
 			<data>
 			WiEc2fP60hsgZv0w8+nw/C5rmMrwfWCn2LyHxgSG5mk=
+			</data>
+		</dict>
+		<key>Resources/com.avencores.hosts-updater.plist</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			82bU0Rjn7uWDPJP4I/LAX8GgPLU=
+			</data>
+			<key>hash2</key>
+			<data>
+			l43Lbdh79VjlylgEs01j1bR3GDZx4gJekDTEshkjuf8=
+			</data>
+		</dict>
+		<key>Resources/hosts-updater-gui.command</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			uSNXVXPXwQWhwihPh/qeyBwclCw=
+			</data>
+			<key>hash2</key>
+			<data>
+			jfhpxpGzUnXaPJAdSgomgnH9i8CpUIX1wzcAWXui6vs=
+			</data>
+		</dict>
+		<key>Resources/install.sh</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			ukQ62liRz9nC6LTGKiBLv7kiy6Y=
+			</data>
+			<key>hash2</key>
+			<data>
+			VvBLuDJBtud9NL8H7ARNc1gPPPOzD1a/damkFDKHja0=
+			</data>
+		</dict>
+		<key>Resources/remove-task.sh</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			GNLyK8dVZvaQ8GCQJrhlaqfilgc=
+			</data>
+			<key>hash2</key>
+			<data>
+			eoRXWLV9PfGAGs3esfIZ1Y2D2lzXNJLYQBIRlg/MkkY=
+			</data>
+		</dict>
+		<key>Resources/status.sh</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			EXsFlHIFsBXndCoLEAlaU8L+Q4A=
+			</data>
+			<key>hash2</key>
+			<data>
+			elKb2B152WZORXxjxgJxZSC2om2KJPlSbPBHrgxds+Q=
+			</data>
+		</dict>
+		<key>Resources/uninstall.sh</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			uCc/C52ENo5UWdRIM6yBr2+W9YY=
+			</data>
+			<key>hash2</key>
+			<data>
+			08Dzkmf3UtHCBWS0mtel9XDsv8n45uRQq5e5XtJMKZo=
+			</data>
+		</dict>
+		<key>Resources/update-hosts.sh</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			yBstlYakERrh4V9RXJ8ZqDrsgpI=
+			</data>
+			<key>hash2</key>
+			<data>
+			vvz71a3ofE0PQ1rWBll1xijO49ebYg8C33EBWsdc85M=
 			</data>
 		</dict>
 	</dict>
