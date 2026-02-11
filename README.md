@@ -1,125 +1,125 @@
-# macOS Hosts Auto Updater for AvenCores List
+# macOS Hosts Auto Updater для списка AvenCores
 
-[Русская версия](README.ru.md)
+[English version](README.en.md)
 
-Automation for macOS that tracks updates of the `hosts` file from [AvenCores/Unlock_AI_and_EN_Services_for_Russia](https://github.com/AvenCores/Unlock_AI_and_EN_Services_for_Russia) and updates local `/private/etc/hosts` when a new version is available.
+Автоматизация для macOS, которая отслеживает обновления файла `hosts` из репозитория [AvenCores/Unlock_AI_and_EN_Services_for_Russia](https://github.com/AvenCores/Unlock_AI_and_EN_Services_for_Russia) и автоматически обновляет локальный `/private/etc/hosts` при выходе новой версии.
 
-## Features
+## Возможности
 
-- Checks `source/system/etc/hosts` using `ETag`.
-- Supports fallback branches: `main` and `master`.
-- Updates `/private/etc/hosts` only when content changes.
-- Creates a backup before replacing your local `hosts`.
-- Flushes DNS cache after update (`dscacheutil` + `mDNSResponder`).
-- Runs as a system `launchd` daemon.
-- Updated GUI without internal `__OK__` / `__ERR__` markers.
+- Проверяет `source/system/etc/hosts` по `ETag`.
+- Поддерживает fallback по веткам: `main` и `master`.
+- Обновляет `/private/etc/hosts` только при реальном изменении.
+- Перед заменой создает backup текущего `hosts`.
+- После обновления очищает DNS-кэш (`dscacheutil` + `mDNSResponder`).
+- Работает как системный `launchd`-daemon.
+- Новый GUI без служебных маркеров `__OK__` / `__ERR__`.
 
-## Project files
+## Файлы проекта
 
-- `update-hosts.sh` - main updater script
-- `com.avencores.hosts-updater.plist` - `launchd` config
-- `install.sh` - install and start service
-- `status.sh` - show schedule and health status
-- `remove-task.sh` - remove only launchd task (keeps updater script)
-- `uninstall.sh` - remove service and script
-- `hosts-updater-gui.command` - user-friendly GUI wrapper
-- `build-app.sh` - build `.app` wrapper
+- `update-hosts.sh` - основной скрипт обновления
+- `com.avencores.hosts-updater.plist` - конфигурация `launchd`
+- `install.sh` - установка и запуск сервиса
+- `status.sh` - показать частоту и состояние
+- `remove-task.sh` - удалить только launchd-задачу (скрипт останется)
+- `uninstall.sh` - удаление сервиса и скрипта
+- `hosts-updater-gui.command` - user-friendly GUI-оболочка
+- `build-app.sh` - сборка `.app`-оболочки
 
-## Requirements
+## Требования
 
 - macOS
-- `sudo` / root access
-- `curl`, `launchctl` (default on macOS)
+- `sudo` / root-доступ
+- `curl`, `launchctl` (есть в macOS по умолчанию)
 
-## Quick Start (No Command Line)
+## Быстрый старт (без командной строки)
 
-1. Open this folder in Finder:  
+1. Откройте папку проекта в Finder:  
    `<PROJECT_DIR>`
-2. Double-click `Hosts Updater.app`  
-   if it is missing, run `build-app.sh` once from Terminal first.
-3. In the main window, click the big `Установить / Исправить` button.
-4. Enter your macOS password (administrator permission prompt).
-5. Wait for the `Успешно` result card.
-6. Click `Статус` to verify:
-   it should show `Скрипт установлен: yes` and `Задача настроена: yes`.
+2. Дважды кликните `Hosts Updater.app`  
+   если файла нет, сначала один раз запустите `build-app.sh` из Terminal.
+3. В главном окне нажмите большую кнопку `Установить / Исправить`.
+4. Введите пароль macOS (это запрос прав администратора).
+5. Дождитесь карточки `Успешно`.
+6. Для проверки нажмите `Статус`:
+   должно быть `Скрипт установлен: yes` и `Задача настроена: yes`.
 
-If macOS blocks app launch:
-- open `System Settings` -> `Privacy & Security`;
-- allow the app manually (`Open Anyway`).
+Если macOS блокирует запуск приложения:
+- откройте `Системные настройки` -> `Конфиденциальность и безопасность`;
+- внизу окна разрешите запуск приложения вручную (`Open Anyway` / `Все равно открыть`).
 
-## Install
+## Установка
 
 ```bash
 cd <PROJECT_DIR>
 sudo ./install.sh
 ```
 
-Installer actions:
-- copies script to `/usr/local/sbin/update-avencores-hosts.sh`
-- copies plist to `/Library/LaunchDaemons/com.avencores.hosts-updater.plist`
-- reloads and starts the daemon
+Что делает установщик:
+- копирует скрипт в `/usr/local/sbin/update-avencores-hosts.sh`
+- копирует plist в `/Library/LaunchDaemons/com.avencores.hosts-updater.plist`
+- перезагружает и запускает daemon
 
-## Schedule
+## Расписание
 
 - Label: `com.avencores.hosts-updater`
 - `RunAtLoad = true`
-- `StartInterval = 3600` (every hour)
+- `StartInterval = 3600` (проверка каждый час)
 
 ## GUI (user-friendly)
 
-Launch from Finder: double-click `hosts-updater-gui.command`.
+Запуск через Finder: двойной клик по `hosts-updater-gui.command`.
 
-Or run from Terminal:
+Или через Terminal:
 
 ```bash
 cd <PROJECT_DIR>
 ./hosts-updater-gui.command
 ```
 
-Home screen:
-- primary CTA: `Установить / Исправить` (default button)
-- secondary actions: `Статус`, `Обновить сейчас`, `Логи`, `Удалить задачу`, `Полное удаление`
+Главный экран:
+- основной сценарий: `Установить / Исправить` (кнопка по умолчанию)
+- вторичные действия: `Статус`, `Обновить сейчас`, `Логи`, `Удалить задачу`, `Полное удаление`
 
-After actions:
-- compact card `Success / Warning / Error`
-- `Подробнее` button opens full stdout/stderr
-- dangerous actions (`Удалить задачу`, `Полное удаление`) require double confirmation
+UX после действий:
+- короткая карточка `Успешно / Предупреждение / Ошибка`
+- кнопка `Подробнее` с полным stdout/stderr
+- для удаления (`Удалить задачу`, `Полное удаление`) используется двойное подтверждение
 
-## Launch as .app
+## Запуск как .app
 
-Build app:
+Собрать приложение:
 
 ```bash
 cd <PROJECT_DIR>
 ./build-app.sh
 ```
 
-After build, you get:
+После сборки появится:
 - `<PROJECT_DIR>/Hosts Updater.app`
 
-Launch:
-- double-click `Hosts Updater.app` in Finder.
+Запуск:
+- двойной клик по `Hosts Updater.app` в Finder.
 
-## Manual run
+## Ручной запуск
 
 ```bash
 sudo /usr/local/sbin/update-avencores-hosts.sh
 ```
 
-## Status and update frequency
+## Статус и частота обновления
 
 ```bash
 cd <PROJECT_DIR>
 sudo ./status.sh
 ```
 
-Machine-readable mode for GUI/scripts:
+Машинно-читаемый режим для GUI/скриптов:
 
 ```bash
 sudo ./status.sh --brief
 ```
 
-Manual checks:
+Ручные проверки:
 
 ```bash
 sudo launchctl print system/com.avencores.hosts-updater
@@ -127,48 +127,48 @@ tail -n 100 /var/log/avencores-hosts-updater.log
 tail -n 100 /var/log/avencores-hosts-updater.err
 ```
 
-## Update after pulling new changes
+## Обновление после изменения файлов проекта
 
 ```bash
 cd <PROJECT_DIR>
 sudo ./install.sh
 ```
 
-## Remove only launchd task
+## Удалить только launchd-задачу
 
 ```bash
 cd <PROJECT_DIR>
 sudo ./remove-task.sh
 ```
 
-## Uninstall
+## Удаление
 
 ```bash
 cd <PROJECT_DIR>
 sudo ./uninstall.sh
 ```
 
-## Important notes
+## Важно
 
-- `/private/etc/hosts` is replaced as a whole file.
-- If you keep local custom entries, add merge logic to `update-hosts.sh`.
-- Backups are saved as `/private/etc/hosts.backup.YYYYmmddHHMMSS`.
+- `/private/etc/hosts` заменяется целиком.
+- Если у вас есть свои локальные записи, добавьте merge-логику в `update-hosts.sh`.
+- Резервные копии сохраняются как `/private/etc/hosts.backup.YYYYmmddHHMMSS`.
 
 ## Troubleshooting
 
 1. `Permission denied`
-   Run commands with `sudo`.
+   Запускайте команды через `sudo`.
 
-2. Service does not start
+2. Сервис не стартует
    ```bash
    sudo plutil -lint /Library/LaunchDaemons/com.avencores.hosts-updater.plist
    ```
 
-3. Updates are not applied
+3. Обновления не применяются
    ```bash
    tail -n 200 /var/log/avencores-hosts-updater.err
    ```
 
 ## Disclaimer
 
-This project is not affiliated with AvenCores. Use at your own risk and validate incoming `hosts` content before production use.
+Проект не аффилирован с AvenCores. Используйте на свой риск и проверяйте содержимое входящего `hosts` перед использованием в production.

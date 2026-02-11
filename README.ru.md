@@ -1,6 +1,6 @@
 # macOS Hosts Auto Updater для списка AvenCores
 
-[English version](README.md)
+[English version](README.en.md)
 
 Автоматизация для macOS, которая отслеживает обновления файла `hosts` из репозитория [AvenCores/Unlock_AI_and_EN_Services_for_Russia](https://github.com/AvenCores/Unlock_AI_and_EN_Services_for_Russia) и автоматически обновляет локальный `/private/etc/hosts` при выходе новой версии.
 
